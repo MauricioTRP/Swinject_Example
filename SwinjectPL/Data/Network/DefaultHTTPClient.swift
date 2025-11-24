@@ -34,35 +34,52 @@ class DefaultHTTPClient: HTTPClientProtocol {
 
     func send<T, E>(_ endpoint: E) async throws -> Result<T, NetworkError> where T : Decodable, E : EndpointProtocol {
         do {
-            var request = try buildRequest(from: endpoint)
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let urlRequest = try buildRequest(from: endpoint)
+            let (data, response) = try await URLSession.shared.data(for: urlRequest)
             
-            guard let http = response as? HTTPURLResponse else {
-                return .failure(.unknownError)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                return .failure(.networkError)
             }
             
-            switch http.statusCode {
+            // Handle HTTP status codes
+            switch httpResponse.statusCode {
             case 200...299:
+                // Success - decode the response
                 do {
-                    let decoded = try JSONDecoder().decode(T.self, from: data)
-                    return .success(decoded)
+                    let decoder = JSONDecoder()
+                    let decodedData = try decoder.decode(T.self, from: data)
+                    return .success(decodedData)
                 } catch {
-                    return .failure(.decodingError)
+                    return .failure(.decodingError(error))
                 }
             case 401:
                 return .failure(.unauthorized)
             case 404:
                 return .failure(.notFound)
+            case 408:
+                return .failure(.timeout)
             default:
-                return .failure(.unknownError)
+                // For other status codes, return network error
+                return .failure(.networkError)
             }
-        } catch let error as NetworkError {
-            return .failure(error)
-        } catch {
-            if (error as NSError).domain == NSURLErrorDomain {
-                return .failure(.noInternet)
+            
+        } catch let error as URLError {
+            switch error.code {
+            
+            case .notConnectedToInternet, .networkConnectionLost:
+                return .failure(NetworkError.noInternet)
+            case .timedOut:
+                return .failure(NetworkError.timeout)
+            case .cannotFindHost, .cannotConnectToHost:
+                return .failure(NetworkError.networkError)
+            default:
+                return .failure(NetworkError.unknownError(error))
             }
-            return .failure(.unknownError)
+        } catch let networkError as NetworkError {
+            return .failure(networkError)
+        }
+        catch {
+            return .failure(NetworkError.unknownError(error))
         }
     }
     

@@ -51,7 +51,7 @@ extension JSONPlaceholderEndpoint : AnyBodyProvider {
             print(error)
             #endif
             
-            throw NetworkError.encodingError
+            throw NetworkError.encodingError(error)
         }
     }
 }
