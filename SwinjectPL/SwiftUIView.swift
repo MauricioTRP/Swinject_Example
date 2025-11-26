@@ -12,7 +12,7 @@ struct SwiftUIView: View {
         VStack {
             Title
             Subtitle
-            PrintButton            
+            PrintButton
         }
     }
     

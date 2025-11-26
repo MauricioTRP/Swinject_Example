@@ -7,8 +7,13 @@
 import Foundation
 import Swinject
 
+protocol ViewModelProtocol {
+    var posts: [PostsModel] { get }
+    var errorMessage: String? { get }
+}
+
 @Observable
-class ViewModel {
+class ViewModel : ViewModelProtocol {
     private let repo: PostsRepositoryProtocol
 
     var posts: [PostsModel] = []
